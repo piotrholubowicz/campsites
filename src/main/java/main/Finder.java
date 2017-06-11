@@ -1,5 +1,6 @@
 package main;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -11,12 +12,16 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
 public class Finder {
 
 	DateTimeFormatter START_FORMATTER = DateTimeFormatter.ofPattern("ccc LLL dd uuuu", new Locale("en"));
 	DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+	// days in 2w starting Monday we look at
+	int[] OFFSETS = { 4, 5, 11, 12 };
 	private final WebDriver driver;
 
 	public Finder(WebDriver driver) {
@@ -25,40 +30,52 @@ public class Finder {
 
 	public void find(String startUrl) {
 		LocalDate referenceDate = LocalDate.now().plusDays(4);
+		// move to next Monday
+		DayOfWeek dayOfWeek = referenceDate.getDayOfWeek();
+		if (dayOfWeek != DayOfWeek.MONDAY) {
+			referenceDate = referenceDate.plusDays(8 - dayOfWeek.getValue());
+		}
 		driver.get(startUrl);
 		driver.findElement(By.id("arrivalDate")).sendKeys(START_FORMATTER.format(referenceDate));
 		new Select(driver.findElement(By.id("flexDates"))).selectByValue("4w");
 		driver.findElement(By.id("filter")).click();
-		driver.findElement(By.id("campCalendar")).click();
-		List<Result> available = findAvailable(referenceDate);
-		System.out.println(String.format("Found %d weekends from %s to %s", available.size(),
-				FORMATTER.format(referenceDate), FORMATTER.format(referenceDate.plusDays(14))));
+		// driver.findElement(By.id("campCalendar")).click();
+		List<Result> results = new ArrayList<>();
+		do {
+			results.addAll(searchAllSites(referenceDate));
+		} while (loadMoreCampsites());
+		System.out.println(String.format("Found %d days from %s to %s", results.size(), FORMATTER.format(referenceDate),
+				FORMATTER.format(referenceDate.plusDays(14))));
+		for (Result r : results) {
+			System.out.println(r);
+		}
 	}
 
-	private List<Result> findAvailable(LocalDate referenceDate) {
-		List<WebElement> weekdays = driver.findElements(By.xpath("//th[class='calendar']/div[class='weekday']"));
-		int offset = 0;
-		for (WebElement weekday : weekdays) {
-			if (weekday.getText().equals("F")) {
-				break;
-			} else {
-				offset++;
+	private List<Result> searchAllSites(LocalDate referenceDate) {
+		List<Result> results = new ArrayList<>();
+		List<WebElement> rows = driver.findElements(By.xpath("//table[@id='calendar']//tr[./td[@class='sn']]"));
+		System.out.println("Found " + rows.size() + " rows");
+		for (WebElement row : rows) {
+			String siteLabel = row.findElement(By.xpath(".//div[@class='siteListLabel']/a")).getText();
+			List<WebElement> statuses = row.findElements(By.xpath("./td[contains(@class, 'status')]"));
+			for (int offset : OFFSETS) {
+				if (statuses.get(offset).getAttribute("class").contains("status a")) {
+					results.add(new Result(referenceDate.plusDays(offset), siteLabel));
+				}
 			}
 		}
-		List<Result> results = new ArrayList<>();
-		results.addAll(searchAllSites(referenceDate, offset));
 		return results;
 	}
 
-	private List<Result> searchAllSites(LocalDate referenceDate, int offset) {
-		List<Result> results = new ArrayList<>();
-		List<WebElement> rows = driver.findElements(By.xpath("//table[@id='calendar']//tr[/td[@class='sn']]"));
-		for (WebElement row : rows) {
-			String siteLabel = row.findElement(By.xpath("./div[@class='siteListLabel']/a")).getText();
-			List<WebElement> statuses = driver.findElements(By.xpath("./td[contains(@class, 'status')]"));
-
+	private boolean loadMoreCampsites() {
+		WebElement next = driver.findElement(By.xpath("//span[@class='pagenav']/a[contains(text(), 'Next')]"));
+		if (next.getAttribute("class").equals("disabled")) {
+			return false;
 		}
-		return results;
+		WebElement siteLabel = driver.findElement(By.xpath(".//div[@class='siteListLabel']/a"));
+		next.click();
+		(new WebDriverWait(driver, 10)).until(ExpectedConditions.stalenessOf(siteLabel));
+		return true;
 	}
 
 	public static void main(String[] args) throws InterruptedException {
@@ -66,9 +83,12 @@ public class Finder {
 		WebDriver driver = new ChromeDriver();
 		driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
 		Finder f = new Finder(driver);
-		f.find("https://www.recreation.gov/camping/kirk-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=71993");
-		Thread.sleep(100000);
-		driver.close();
+		try {
+			f.find("https://www.recreation.gov/camping/kirk-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=71993");
+			// Thread.sleep(100000);
+		} finally {
+			driver.close();
+		}
 	}
 
 }

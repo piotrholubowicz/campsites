@@ -1,6 +1,7 @@
 package main;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class Result {
 	private final LocalDate date;
@@ -17,6 +18,11 @@ public class Result {
 
 	public LocalDate getDate() {
 		return date;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("%s: %s", siteLabel, DateTimeFormatter.ISO_LOCAL_DATE.format(date));
 	}
 
 }
