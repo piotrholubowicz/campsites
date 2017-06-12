@@ -22,7 +22,9 @@ public class Finder {
 	DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 	// days in 2w starting Monday we look at
 	int[] OFFSETS = { 4, 5, 11, 12 };
+	private final LocalDate LAST_DATE = LocalDate.of(2017, 9, 30);
 	private final WebDriver driver;
+	private String campName;
 
 	public Finder(WebDriver driver) {
 		this.driver = driver;
@@ -36,14 +38,20 @@ public class Finder {
 			referenceDate = referenceDate.plusDays(8 - dayOfWeek.getValue());
 		}
 		driver.get(startUrl);
+		campName = driver.findElement(By.id("cgroundName")).getText();
 		driver.findElement(By.id("arrivalDate")).sendKeys(START_FORMATTER.format(referenceDate));
 		new Select(driver.findElement(By.id("flexDates"))).selectByValue("4w");
 		driver.findElement(By.id("filter")).click();
 		// driver.findElement(By.id("campCalendar")).click();
 		List<Result> results = new ArrayList<>();
 		do {
-			results.addAll(searchAllSites(referenceDate));
-		} while (loadMoreCampsites());
+			while (changeSites("Previous"))
+				;
+			do {
+				results.addAll(searchAllSites(referenceDate));
+			} while (changeSites("Next"));
+			referenceDate = referenceDate.plusDays(14);
+		} while (referenceDate.isBefore(LAST_DATE) && loadNextWeeks());
 		System.out.println(String.format("Found %d days from %s to %s", results.size(), FORMATTER.format(referenceDate),
 				FORMATTER.format(referenceDate.plusDays(14))));
 		for (Result r : results) {
@@ -60,20 +68,27 @@ public class Finder {
 			List<WebElement> statuses = row.findElements(By.xpath("./td[contains(@class, 'status')]"));
 			for (int offset : OFFSETS) {
 				if (statuses.get(offset).getAttribute("class").contains("status a")) {
-					results.add(new Result(referenceDate.plusDays(offset), siteLabel));
+					results.add(new Result(referenceDate.plusDays(offset), campName, siteLabel));
 				}
 			}
 		}
 		return results;
 	}
 
-	private boolean loadMoreCampsites() {
-		WebElement next = driver.findElement(By.xpath("//span[@class='pagenav']/a[contains(text(), 'Next')]"));
+	private boolean changeSites(String text) {
+		WebElement next = driver.findElement(By.xpath("//span[@class='pagenav']/a[contains(text(), '" + text + "')]"));
 		if (next.getAttribute("class").equals("disabled")) {
 			return false;
 		}
-		WebElement siteLabel = driver.findElement(By.xpath(".//div[@class='siteListLabel']/a"));
+		WebElement siteLabel = driver.findElement(By.xpath("//div[@class='siteListLabel']/a"));
 		next.click();
+		(new WebDriverWait(driver, 10)).until(ExpectedConditions.stalenessOf(siteLabel));
+		return true;
+	}
+
+	private boolean loadNextWeeks() {
+		WebElement siteLabel = driver.findElement(By.xpath("//div[@class='siteListLabel']/a"));
+		driver.findElement(By.id("nextWeek")).click();
 		(new WebDriverWait(driver, 10)).until(ExpectedConditions.stalenessOf(siteLabel));
 		return true;
 	}
