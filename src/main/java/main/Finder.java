@@ -21,8 +21,9 @@ public class Finder {
 	private static final String[] SITES = {
 			"https://www.recreation.gov/camping/plaskett-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=70161",
 			"https://www.recreation.gov/camping/kirk-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=71993",
-			"https://www.recreation.gov/camping/pinnacles-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=73984",
-			"https://www.recreation.gov/camping/point-reyes-national-seashore-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=72393" };
+			// "https://www.recreation.gov/camping/pinnacles-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=73984",
+			// "https://www.recreation.gov/camping/point-reyes-national-seashore-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=72393"
+	};
 
 	private static final DateTimeFormatter START_FORMATTER = DateTimeFormatter.ofPattern("ccc LLL dd uuuu",
 			new Locale("en"));
