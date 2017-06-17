@@ -18,8 +18,15 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 public class Finder {
 
-	DateTimeFormatter START_FORMATTER = DateTimeFormatter.ofPattern("ccc LLL dd uuuu", new Locale("en"));
-	DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+	private static final String[] SITES = {
+			"https://www.recreation.gov/camping/plaskett-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=70161",
+			"https://www.recreation.gov/camping/kirk-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=71993",
+			"https://www.recreation.gov/camping/pinnacles-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=73984",
+			"https://www.recreation.gov/camping/point-reyes-national-seashore-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=72393" };
+
+	private static final DateTimeFormatter START_FORMATTER = DateTimeFormatter.ofPattern("ccc LLL dd uuuu",
+			new Locale("en"));
+	private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 	// days in 2w starting Monday we look at
 	int[] OFFSETS = { 4, 5, 11, 12 };
 	private final LocalDate LAST_DATE = LocalDate.of(2017, 9, 30);
@@ -30,7 +37,7 @@ public class Finder {
 		this.driver = driver;
 	}
 
-	public void find(String startUrl) {
+	public List<Result> find(String startUrl) {
 		LocalDate referenceDate = LocalDate.now().plusDays(4);
 		// move to next Monday
 		DayOfWeek dayOfWeek = referenceDate.getDayOfWeek();
@@ -39,6 +46,7 @@ public class Finder {
 		}
 		driver.get(startUrl);
 		campName = driver.findElement(By.id("cgroundName")).getText();
+		System.out.println(campName);
 		driver.findElement(By.id("arrivalDate")).sendKeys(START_FORMATTER.format(referenceDate));
 		new Select(driver.findElement(By.id("flexDates"))).selectByValue("4w");
 		driver.findElement(By.id("filter")).click();
@@ -52,17 +60,16 @@ public class Finder {
 			} while (changeSites("Next"));
 			referenceDate = referenceDate.plusDays(14);
 		} while (referenceDate.isBefore(LAST_DATE) && loadNextWeeks());
-		System.out.println(String.format("Found %d days from %s to %s", results.size(), FORMATTER.format(referenceDate),
-				FORMATTER.format(referenceDate.plusDays(14))));
+		System.out.println(String.format("Found %d days until %s", results.size(), FORMATTER.format(referenceDate)));
 		for (Result r : results) {
 			System.out.println(r);
 		}
+		return results;
 	}
 
 	private List<Result> searchAllSites(LocalDate referenceDate) {
 		List<Result> results = new ArrayList<>();
 		List<WebElement> rows = driver.findElements(By.xpath("//table[@id='calendar']//tr[./td[@class='sn']]"));
-		System.out.println("Found " + rows.size() + " rows");
 		for (WebElement row : rows) {
 			String siteLabel = row.findElement(By.xpath(".//div[@class='siteListLabel']/a")).getText();
 			List<WebElement> statuses = row.findElements(By.xpath("./td[contains(@class, 'status')]"));
@@ -93,15 +100,13 @@ public class Finder {
 		return true;
 	}
 
-	public static void main(String[] args) throws InterruptedException {
+	public static void main(String[] args) {
 		System.setProperty("webdriver.chrome.driver", "/Users/piotrhol/Documents/chromedriver");
-		WebDriver driver = new ChromeDriver();
-		driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
-		Finder f = new Finder(driver);
-		try {
-			f.find("https://www.recreation.gov/camping/kirk-creek-campground/r/campgroundDetails.do?contractCode=NRSO&parkId=71993");
-			// Thread.sleep(100000);
-		} finally {
+		for (String site : SITES) {
+			WebDriver driver = new ChromeDriver();
+			driver.manage().timeouts().implicitlyWait(10, TimeUnit.SECONDS);
+			Finder f = new Finder(driver);
+			f.find(site);
 			driver.close();
 		}
 	}
