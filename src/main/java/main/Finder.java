@@ -4,6 +4,7 @@ import java.util.List;
 
 public interface Finder {
 
-	List<Result> find(String startUrl);
+	List<Result> find(Site site);
 
+	void close();
 }
